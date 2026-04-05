@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Editor from '@monaco-editor/react';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import { StlViewer } from './components/StlViewer';
-import { renderScadToStl, getRecentLogs, clearLogs } from './services/openscad';
+import { renderOpenScad, getRecentLogs, clearLogs } from './services/openscad';
 import { sendMessageToAgent, ChatMessage } from './services/ai';
 import { parseScadParameters, updateScadParameter, ScadParameter } from './utils/scadParser';
 import { Download, Save, FolderOpen, Send, Loader2, LayoutGrid, Square, CheckCircle2, XCircle, Clock, Circle } from 'lucide-react';
@@ -23,7 +23,10 @@ difference() {
         sphere(r=corner_radius);
     }
     if (show_sphere) {
-        sphere(r=width/2);
+        // Adding +1 to the radius ensures the sphere cleanly cuts 
+        // through the outer faces instead of perfectly tangentially 
+        // grazing the x-axis bounds (which caused a 2-manifold error).
+        sphere(r=(width/2) + 1);
     }
 }
 `;
@@ -31,12 +34,13 @@ difference() {
 export default function App() {
   const [code, setCode] = useState(DEFAULT_CODE);
   const [stlContent, setStlContent] = useState<string | null>(null);
+  const [amfContent, setAmfContent] = useState<string | null>(null);
   const [renderStatus, setRenderStatus] = useState<'stale' | 'working' | 'done' | 'failed'>('stale');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isAgentTyping, setIsAgentTyping] = useState(false);
   const [screenshotTrigger, setScreenshotTrigger] = useState(0);
-  const [viewMode, setViewMode] = useState<'single' | 'quad'>('single');
+  const [viewMode, setViewMode] = useState<'single' | 'quad'>('quad');
   const [parameters, setParameters] = useState<ScadParameter[]>([]);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [compilerLogs, setCompilerLogs] = useState<string>('');
@@ -72,14 +76,17 @@ export default function App() {
     logLinesRef.current = [];
     
     try {
-      const stl = await renderScadToStl(currentCode);
-      setStlContent(stl);
+      const result = await renderOpenScad(currentCode);
+      setStlContent(result.stl);
+      setAmfContent(result.amf);
       setRenderError(null);
       setRenderStatus('done');
     } catch (error) {
       console.error("Render failed", error);
-      setRenderError(error instanceof Error ? error.message : String(error));
+      const errStr = error instanceof Error ? error.message : String(error);
+      setRenderError(errStr);
       setRenderStatus('failed');
+      appendLog(`[ERROR] Render sequence failed: ${errStr} (This usually means the object geometry was invalid and OpenSCAD refused to export it.)`);
     } finally {
       const logs = getRecentLogs();
       logLinesRef.current = logs ? logs.split('\n') : [];
@@ -428,7 +435,7 @@ export default function App() {
             <PanelGroup orientation="vertical" className="flex-1 min-h-0">
               <Panel defaultSize={70} minSize={30} className="relative">
                 <StlViewer 
-                  stlContent={stlContent} 
+                  stlContent={amfContent || stlContent} 
                   onScreenshot={handleScreenshot}
                   screenshotTrigger={screenshotTrigger}
                   viewMode={viewMode}

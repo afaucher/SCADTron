@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import { getModelDimensions, castRay } from "../utils/stlMeasurements";
+import { cheatSheet } from "../lib/openscad-cheatsheet";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -95,10 +96,17 @@ ${logs || "No recent logs."}
 
 ${error ? `Current Compiler Error:\n${error}` : "The code currently compiles successfully."}
 
-When the user asks for changes, you should use the 'editCode' tool to modify the code. 
+Here is the OpenSCAD Cheat Sheet for your reference:
+\`\`\`
+${cheatSheet}
+\`\`\`
+
+When the user asks for changes, you should use the 'editCode' tool to modify the code.
 Prefer 'replace_string' for small incremental changes. Make sure the 'targetString' exactly matches a portion of the current code.
 If you need to rewrite the whole thing, use 'replace_all'.
 If you want to see what the current model looks like, use the 'takeScreenshot' tool.
+
+IMPORTANT: You have access to the Google Search tool. If the user asks about an OpenSCAD feature, module, or syntax that is not fully covered in the Cheat Sheet, or if you are unsure how to use a library/function, YOU MUST use the Google Search tool to look up the official OpenSCAD documentation before proposing a code edit.
 
 DEBUGGING TIP: If you need to verify positions, rotations, or variable values, you can add \`echo("DEBUG:", my_variable);\` to the OpenSCAD code. The output will appear in the "Recent compiler logs" in your next turn.
 

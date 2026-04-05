@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Stage, Grid, OrthographicCamera, PerspectiveCamera } from '@react-three/drei';
-import { STLLoader } from 'three-stdlib';
+import { STLLoader, AMFLoader } from 'three-stdlib';
 import * as THREE from 'three';
 
 interface ViewerProps {
@@ -13,31 +13,41 @@ interface ViewerProps {
 }
 
 function Model({ stlContent }: { stlContent: string }) {
-  const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
+  const [model, setModel] = useState<THREE.Object3D | null>(null);
 
   useEffect(() => {
     if (!stlContent) {
-      setGeometry(null);
+      setModel(null);
       return;
     }
 
     try {
-      const loader = new STLLoader();
-      const geom = loader.parse(stlContent);
-      geom.computeVertexNormals();
-      setGeometry(geom);
+      if (stlContent.includes('<amf')) {
+        const loader = new AMFLoader();
+        const arrayBuffer = new TextEncoder().encode(stlContent).buffer;
+        const group = loader.parse(arrayBuffer);
+        
+        // If materials are flat, AMF might not assign physical properties we want.
+        // But let's trust AMFLoader's default generation for now, it supports the color!
+        setModel(group);
+      } else {
+        const loader = new STLLoader();
+        const geom = loader.parse(stlContent);
+        geom.computeVertexNormals();
+        const mesh = new THREE.Mesh(
+          geom, 
+          new THREE.MeshStandardMaterial({ color: "#facc15", roughness: 0.4, metalness: 0.1 })
+        );
+        setModel(mesh);
+      }
     } catch (error) {
-      console.error("Failed to parse STL", error);
+      console.error("Failed to parse model", error);
     }
   }, [stlContent]);
 
-  if (!geometry) return null;
+  if (!model) return null;
 
-  return (
-    <mesh geometry={geometry}>
-      <meshStandardMaterial color="#facc15" roughness={0.4} metalness={0.1} />
-    </mesh>
-  );
+  return <primitive object={model} />;
 }
 
 function ScreenshotHelper({ onScreenshot, trigger }: { onScreenshot?: (dataUrl: string) => void, trigger?: number }) {
