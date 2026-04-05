@@ -66,15 +66,42 @@ function ScreenshotHelper({ onScreenshot, trigger }: { onScreenshot?: (dataUrl: 
   return null;
 }
 
-function SingleView({ stlContent, onScreenshot, screenshotTrigger, cameraType, position, up }: any) {
+// Auto-fits an OrthographicCamera to the scene's bounding box for true ortho views.
+function AutoFitOrtho() {
+  const { camera, scene } = useThree();
+  useEffect(() => {
+    const box = new THREE.Box3().setFromObject(scene);
+    if (box.isEmpty()) return;
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z) * 1.4; // padding
+    const ortho = camera as THREE.OrthographicCamera;
+    ortho.zoom = Math.min(ortho.right / (maxDim / 2), ortho.top / (maxDim / 2));
+    ortho.lookAt(center);
+    ortho.updateProjectionMatrix();
+  });
+  return null;
+}
+
+function OrthoView({ stlContent, position, up }: any) {
+  return (
+    <Canvas shadows={{ type: THREE.PCFShadowMap }} gl={{ preserveDrawingBuffer: true }} orthographic camera={{ position, up, zoom: 4, near: 0.1, far: 10000 }}>
+      <color attach="background" args={['#111827']} />
+      <ambientLight intensity={0.5} />
+      <directionalLight position={[10, 10, 10]} intensity={1} />
+      <directionalLight position={[-10, -10, 5]} intensity={0.3} />
+      {stlContent && <Model stlContent={stlContent} />}
+      <AutoFitOrtho />
+      <Grid rotation={[Math.PI / 2, 0, 0]} infiniteGrid fadeDistance={200} sectionColor="#4b5563" cellColor="#374151" />
+      <OrbitControls makeDefault enableRotate={false} />
+    </Canvas>
+  );
+}
+
+function PerspectiveView({ stlContent, onScreenshot, screenshotTrigger, position, up }: any) {
   return (
     <Canvas shadows={{ type: THREE.PCFShadowMap }} gl={{ preserveDrawingBuffer: true }}>
-      <PerspectiveCamera 
-        makeDefault 
-        position={position} 
-        up={up} 
-        fov={cameraType === 'ortho' ? 2 : 50} 
-      />
+      <PerspectiveCamera makeDefault position={position} up={up} fov={50} />
       <color attach="background" args={['#111827']} />
       
       <Stage environment="city" intensity={0.6} adjustCamera={1.2} shadows={false}>
@@ -82,7 +109,7 @@ function SingleView({ stlContent, onScreenshot, screenshotTrigger, cameraType, p
       </Stage>
       
       <Grid rotation={[Math.PI / 2, 0, 0]} infiniteGrid fadeDistance={200} sectionColor="#4b5563" cellColor="#374151" />
-      <OrbitControls makeDefault enableRotate={cameraType !== 'ortho'} />
+      <OrbitControls makeDefault />
       {onScreenshot && <ScreenshotHelper onScreenshot={onScreenshot} trigger={screenshotTrigger} />}
     </Canvas>
   );
@@ -100,11 +127,10 @@ export function StlViewer({ stlContent, onScreenshot, screenshotTrigger, viewMod
   if (viewMode === 'single') {
     return (
       <div className={`w-full h-full bg-gray-900 relative transition-all duration-500 ease-in-out ${isRendering ? 'grayscale opacity-50' : ''}`}>
-        <SingleView 
+        <PerspectiveView 
           stlContent={stlContent} 
           onScreenshot={onScreenshot} 
           screenshotTrigger={screenshotTrigger}
-          cameraType="perspective"
           position={[50, 50, 50]}
           up={[0, 0, 1]}
         />
@@ -117,25 +143,25 @@ export function StlViewer({ stlContent, onScreenshot, screenshotTrigger, viewMod
       {/* Top View (looking down Z) */}
       <div className="relative border border-gray-800 rounded overflow-hidden">
         <div className="absolute top-2 left-2 z-10 bg-black/50 text-white text-xs px-2 py-1 rounded">Top</div>
-        <SingleView stlContent={stlContent} cameraType="ortho" position={[0, 0, 100]} up={[0, 1, 0]} />
+        <OrthoView stlContent={stlContent} position={[0, 0, 100]} up={[0, 1, 0]} />
       </div>
       
       {/* Perspective View */}
       <div className="relative border border-gray-800 rounded overflow-hidden">
         <div className="absolute top-2 left-2 z-10 bg-black/50 text-white text-xs px-2 py-1 rounded">3D</div>
-        <SingleView stlContent={stlContent} cameraType="perspective" position={[50, 50, 50]} up={[0, 0, 1]} />
+        <PerspectiveView stlContent={stlContent} position={[50, 50, 50]} up={[0, 0, 1]} />
       </div>
 
       {/* Front View (looking down Y) */}
       <div className="relative border border-gray-800 rounded overflow-hidden">
         <div className="absolute top-2 left-2 z-10 bg-black/50 text-white text-xs px-2 py-1 rounded">Front</div>
-        <SingleView stlContent={stlContent} cameraType="ortho" position={[0, -100, 0]} up={[0, 0, 1]} />
+        <OrthoView stlContent={stlContent} position={[0, -100, 0]} up={[0, 0, 1]} />
       </div>
 
       {/* Right View (looking down X) */}
       <div className="relative border border-gray-800 rounded overflow-hidden">
         <div className="absolute top-2 left-2 z-10 bg-black/50 text-white text-xs px-2 py-1 rounded">Right</div>
-        <SingleView stlContent={stlContent} cameraType="ortho" position={[100, 0, 0]} up={[0, 0, 1]} />
+        <OrthoView stlContent={stlContent} position={[100, 0, 0]} up={[0, 0, 1]} />
       </div>
     </div>
   );

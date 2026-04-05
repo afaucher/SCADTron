@@ -5,7 +5,7 @@ import { StlViewer } from './components/StlViewer';
 import { renderOpenScad, getRecentLogs, clearLogs } from './services/openscad';
 import { sendMessageToAgent, ChatMessage } from './services/ai';
 import { parseScadParameters, updateScadParameter, ScadParameter } from './utils/scadParser';
-import { Download, Save, FolderOpen, Send, Loader2, LayoutGrid, Square, CheckCircle2, XCircle, Clock, Circle } from 'lucide-react';
+import { Download, Save, FolderOpen, Send, Loader2, LayoutGrid, Square, CheckCircle2, XCircle, Clock, Circle, FilePlus } from 'lucide-react';
 
 const DEFAULT_CODE = `// OpenSCAD Parameterized Model
 width = 20; // [10:1:50] Width of the base
@@ -44,7 +44,8 @@ export default function App() {
   const [parameters, setParameters] = useState<ScadParameter[]>([]);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [compilerLogs, setCompilerLogs] = useState<string>('');
-  const [saveMessage, setSaveMessage] = useState('');
+  const [savedCode, setSavedCode] = useState<string | null>(null);
+  const isDirty = savedCode !== null ? code !== savedCode : code !== DEFAULT_CODE;
   
   const screenshotResolveRef = useRef<((dataUrl: string) => void) | null>(null);
   const isRenderingRef = useRef(false);
@@ -61,6 +62,7 @@ export default function App() {
     const saved = localStorage.getItem('saved_scad');
     if (saved) {
       setCode(saved);
+      setSavedCode(saved);
     }
   }, []);
 
@@ -209,8 +211,7 @@ export default function App() {
 
   const handleSaveLocal = () => {
     localStorage.setItem('saved_scad', code);
-    setSaveMessage('Saved to browser!');
-    setTimeout(() => setSaveMessage(''), 2000);
+    setSavedCode(code);
   };
 
   const handleLoadScad = () => {
@@ -229,6 +230,14 @@ export default function App() {
       }
     };
     input.click();
+  };
+
+  const handleNew = () => {
+    if (isDirty && !window.confirm('You have unsaved changes. Discard them and start new?')) return;
+    setCode(DEFAULT_CODE);
+    setSavedCode(null);
+    setMessages([]);
+    localStorage.removeItem('saved_scad');
   };
 
   return (
@@ -290,12 +299,16 @@ export default function App() {
         {/* Toolbar */}
         <div className="h-14 border-b border-gray-800 flex items-center justify-between px-4 bg-gray-900 shrink-0">
           <div className="flex items-center gap-2">
+            <button onClick={handleNew} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-800 hover:bg-gray-700 rounded transition-colors">
+              <FilePlus className="w-4 h-4" /> New
+            </button>
             <button onClick={handleLoadScad} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-800 hover:bg-gray-700 rounded transition-colors">
               <FolderOpen className="w-4 h-4" /> Load .scad
             </button>
-            <button onClick={handleSaveLocal} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-800 hover:bg-gray-700 rounded transition-colors relative">
-              <Save className="w-4 h-4" /> Save
-              {saveMessage && <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-green-600 text-white text-xs px-2 py-1 rounded whitespace-nowrap shadow-lg">{saveMessage}</span>}
+            <button onClick={handleSaveLocal} className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded transition-colors relative ${isDirty ? 'bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-300' : 'bg-gray-800 hover:bg-gray-700'}`}>
+              <Save className="w-4 h-4" />
+              Save
+              {isDirty && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-yellow-500 rounded-full border-2 border-gray-900" />}
             </button>
             <button onClick={handleSaveScad} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-800 hover:bg-gray-700 rounded transition-colors">
               <Download className="w-4 h-4" /> Download .scad
