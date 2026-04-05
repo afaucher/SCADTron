@@ -24,6 +24,7 @@
     "openscad-wasm-prebuilt": "^1.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-resizable-panels": "^4.9.0",
     "three": "^0.183.2",
     "three-stdlib": "^2.36.1",
     "vite": "^6.2.0"

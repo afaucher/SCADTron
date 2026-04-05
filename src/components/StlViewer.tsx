@@ -9,6 +9,7 @@ interface ViewerProps {
   onScreenshot?: (dataUrl: string) => void;
   screenshotTrigger?: number;
   viewMode?: 'single' | 'quad';
+  isRendering?: boolean;
 }
 
 function Model({ stlContent }: { stlContent: string }) {
@@ -76,7 +77,7 @@ function SingleView({ stlContent, onScreenshot, screenshotTrigger, cameraType, p
   );
 }
 
-export function StlViewer({ stlContent, onScreenshot, screenshotTrigger, viewMode = 'single' }: ViewerProps) {
+export function StlViewer({ stlContent, onScreenshot, screenshotTrigger, viewMode = 'single', isRendering = false }: ViewerProps) {
   if (!stlContent) {
     return (
       <div className="w-full h-full bg-gray-900 relative flex items-center justify-center">
@@ -87,7 +88,7 @@ export function StlViewer({ stlContent, onScreenshot, screenshotTrigger, viewMod
 
   if (viewMode === 'single') {
     return (
-      <div className="w-full h-full bg-gray-900 relative">
+      <div className={`w-full h-full bg-gray-900 relative transition-all duration-500 ease-in-out ${isRendering ? 'grayscale opacity-50' : ''}`}>
         <SingleView 
           stlContent={stlContent} 
           onScreenshot={onScreenshot} 
@@ -101,7 +102,7 @@ export function StlViewer({ stlContent, onScreenshot, screenshotTrigger, viewMod
   }
 
   return (
-    <div className="w-full h-full bg-gray-900 grid grid-cols-2 grid-rows-2 gap-1 p-1">
+    <div className={`w-full h-full bg-gray-900 grid grid-cols-2 grid-rows-2 gap-1 p-1 transition-all duration-500 ease-in-out ${isRendering ? 'grayscale opacity-50' : ''}`}>
       {/* Top View (looking down Z) */}
       <div className="relative border border-gray-800 rounded overflow-hidden">
         <div className="absolute top-2 left-2 z-10 bg-black/50 text-white text-xs px-2 py-1 rounded">Top</div>

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Editor from '@monaco-editor/react';
+import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import { StlViewer } from './components/StlViewer';
 import { renderScadToStl, getRecentLogs, clearLogs } from './services/openscad';
 import { sendMessageToAgent, ChatMessage } from './services/ai';
 import { parseScadParameters, updateScadParameter, ScadParameter } from './utils/scadParser';
-import { Play, Download, Save, FolderOpen, Send, Loader2, LayoutGrid, Square } from 'lucide-react';
+import { Download, Save, FolderOpen, Send, Loader2, LayoutGrid, Square, CheckCircle2, XCircle, Clock, Circle } from 'lucide-react';
 
 const DEFAULT_CODE = `// OpenSCAD Parameterized Model
 width = 20; // [10:1:50] Width of the base
@@ -30,7 +31,7 @@ difference() {
 export default function App() {
   const [code, setCode] = useState(DEFAULT_CODE);
   const [stlContent, setStlContent] = useState<string | null>(null);
-  const [isRendering, setIsRendering] = useState(false);
+  const [renderStatus, setRenderStatus] = useState<'stale' | 'working' | 'done' | 'failed'>('stale');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isAgentTyping, setIsAgentTyping] = useState(false);
@@ -44,6 +45,12 @@ export default function App() {
   const screenshotResolveRef = useRef<((dataUrl: string) => void) | null>(null);
   const isRenderingRef = useRef(false);
   const pendingCodeRef = useRef<string | null>(null);
+  const logLinesRef = useRef<string[]>([]);
+
+  const appendLog = (line: string) => {
+    logLinesRef.current = [...logLinesRef.current, line];
+    setCompilerLogs(logLinesRef.current.join('\n'));
+  };
 
   // Load from local storage on mount
   useEffect(() => {
@@ -60,20 +67,24 @@ export default function App() {
     }
 
     isRenderingRef.current = true;
-    setIsRendering(true);
+    setRenderStatus('working');
     clearLogs();
+    logLinesRef.current = [];
     
     try {
       const stl = await renderScadToStl(currentCode);
       setStlContent(stl);
       setRenderError(null);
+      setRenderStatus('done');
     } catch (error) {
       console.error("Render failed", error);
       setRenderError(error instanceof Error ? error.message : String(error));
+      setRenderStatus('failed');
     } finally {
-      setCompilerLogs(getRecentLogs());
+      const logs = getRecentLogs();
+      logLinesRef.current = logs ? logs.split('\n') : [];
+      setCompilerLogs(logs);
       isRenderingRef.current = false;
-      setIsRendering(false);
       
       if (pendingCodeRef.current !== null) {
         const nextCode = pendingCodeRef.current;
@@ -89,11 +100,12 @@ export default function App() {
     setParameters(parsed);
   }, [code]);
 
-  // Auto-render on code change with debounce
+  // Mark stale immediately on code change, then auto-render with debounce
   useEffect(() => {
+    setRenderStatus('stale');
     const timer = setTimeout(() => {
       handleRender(code);
-    }, 100); // Reduced debounce for real-time slider updates
+    }, 300);
     return () => clearTimeout(timer);
   }, [code, handleRender]);
 
@@ -129,9 +141,25 @@ export default function App() {
         },
         () => {
           return new Promise<string>((resolve) => {
-            screenshotResolveRef.current = resolve;
-            setScreenshotTrigger(prev => prev + 1);
+            const tryCapture = () => {
+              // If we are currently rendering or have a render queued, wait!
+              if (isRenderingRef.current || pendingCodeRef.current !== null) {
+                setTimeout(tryCapture, 100);
+              } else {
+                screenshotResolveRef.current = resolve;
+                setScreenshotTrigger(prev => prev + 1);
+              }
+            };
+            tryCapture();
           });
+        },
+        (toolName, args) => {
+          const argSummary = toolName === 'editCode'
+            ? `(${(args as any)?.action})`
+            : args && Object.keys(args).length > 0
+              ? `(${JSON.stringify(args).slice(0, 80)})`
+              : '';
+          appendLog(`[TOOL] ${toolName}${argSummary}`);
         }
       );
 
@@ -197,9 +225,10 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-gray-950 text-gray-100 font-sans">
+    <div className="flex h-screen w-full bg-gray-950 text-gray-100 font-sans overflow-hidden">
+      <PanelGroup orientation="horizontal">
       {/* Sidebar Chat */}
-      <div className="w-80 border-r border-gray-800 flex flex-col bg-gray-900">
+      <Panel defaultSize={25} minSize={15} className="flex flex-col bg-gray-900 border-r border-gray-800">
         <div className="p-4 border-b border-gray-800 font-bold text-lg flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-blue-500"></div>
           OpenSCAD AI Assistant
@@ -243,12 +272,16 @@ export default function App() {
             </button>
           </div>
         </div>
-      </div>
+      </Panel>
+
+      <PanelResizeHandle className="w-1.5 bg-gray-900 hover:bg-blue-600 transition-colors flex items-center justify-center group shrink-0 z-10 cursor-col-resize">
+        <div className="w-0.5 h-8 bg-gray-700 group-hover:bg-blue-300 rounded" />
+      </PanelResizeHandle>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <Panel defaultSize={75} minSize={30} className="flex flex-col min-w-0">
         {/* Toolbar */}
-        <div className="h-14 border-b border-gray-800 flex items-center justify-between px-4 bg-gray-900">
+        <div className="h-14 border-b border-gray-800 flex items-center justify-between px-4 bg-gray-900 shrink-0">
           <div className="flex items-center gap-2">
             <button onClick={handleLoadScad} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-800 hover:bg-gray-700 rounded transition-colors">
               <FolderOpen className="w-4 h-4" /> Load .scad
@@ -277,10 +310,27 @@ export default function App() {
               </button>
             </div>
 
-            {isRendering && <span className="text-xs text-yellow-500 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Rendering...</span>}
-            <button onClick={() => handleRender(code)} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-500 rounded transition-colors">
-              <Play className="w-4 h-4" /> Render
-            </button>
+            {/* Render status pill */}
+            {renderStatus === 'stale' && (
+              <span className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full bg-gray-700 text-gray-400 select-none">
+                <Circle className="w-3 h-3" /> Stale
+              </span>
+            )}
+            {renderStatus === 'working' && (
+              <span className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full bg-yellow-500/20 text-yellow-400 select-none">
+                <Loader2 className="w-3 h-3 animate-spin" /> Rendering
+              </span>
+            )}
+            {renderStatus === 'done' && (
+              <span className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full bg-green-500/20 text-green-400 select-none">
+                <CheckCircle2 className="w-3 h-3" /> Ready
+              </span>
+            )}
+            {renderStatus === 'failed' && (
+              <span className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full bg-red-500/20 text-red-400 select-none">
+                <XCircle className="w-3 h-3" /> Failed
+              </span>
+            )}
             <button onClick={handleExportStl} disabled={!stlContent} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-green-600 hover:bg-green-500 disabled:bg-gray-800 disabled:text-gray-600 rounded transition-colors">
               <Download className="w-4 h-4" /> Export STL
             </button>
@@ -288,15 +338,9 @@ export default function App() {
         </div>
 
         {/* Split View */}
-        <div className="flex-1 flex min-h-0">
+        <PanelGroup orientation="horizontal" className="flex-1 min-h-0">
           {/* Editor & Parameters */}
-          <div className="w-1/2 border-r border-gray-800 flex flex-col relative">
-            {renderError && (
-              <div className="absolute top-0 left-0 right-0 z-10 bg-red-900/90 text-red-100 px-4 py-2 text-xs font-mono border-b border-red-700 max-h-32 overflow-y-auto">
-                <div className="font-bold mb-1">Compiler Error:</div>
-                <pre className="whitespace-pre-wrap">{renderError}</pre>
-              </div>
-            )}
+          <Panel defaultSize={50} minSize={20} className="flex flex-col relative border-r border-gray-800">
             
             {parameters.length > 0 && (
               <div className="bg-gray-900 border-b border-gray-800 p-4 max-h-64 overflow-y-auto shrink-0">
@@ -373,19 +417,67 @@ export default function App() {
                 }}
               />
             </div>
-          </div>
+          </Panel>
 
-          {/* 3D Viewer */}
-          <div className="w-1/2 relative">
-            <StlViewer 
-              stlContent={stlContent} 
-              onScreenshot={handleScreenshot}
-              screenshotTrigger={screenshotTrigger}
-              viewMode={viewMode}
-            />
-          </div>
-        </div>
-      </div>
+          <PanelResizeHandle className="w-1.5 bg-gray-900 hover:bg-blue-600 transition-colors flex items-center justify-center group shrink-0 z-10 cursor-col-resize">
+            <div className="w-0.5 h-8 bg-gray-700 group-hover:bg-blue-300 rounded" />
+          </PanelResizeHandle>
+
+          {/* 3D Viewer + Log Panel */}
+          <Panel defaultSize={50} minSize={20} className="flex flex-col">
+            <PanelGroup orientation="vertical" className="flex-1 min-h-0">
+              <Panel defaultSize={70} minSize={30} className="relative">
+                <StlViewer 
+                  stlContent={stlContent} 
+                  onScreenshot={handleScreenshot}
+                  screenshotTrigger={screenshotTrigger}
+                  viewMode={viewMode}
+                  isRendering={renderStatus === 'stale' || renderStatus === 'working'}
+                />
+              </Panel>
+
+              <PanelResizeHandle className="h-1.5 bg-gray-900 hover:bg-blue-600 transition-colors flex items-center justify-center group shrink-0 z-10 cursor-row-resize">
+                <div className="h-0.5 w-8 bg-gray-700 group-hover:bg-blue-300 rounded" />
+              </PanelResizeHandle>
+
+              {/* Log Panel */}
+              <Panel defaultSize={30} minSize={10} className="flex flex-col bg-gray-950 border-t border-gray-800">
+                <div className="px-3 py-1.5 border-b border-gray-800 flex items-center justify-between shrink-0">
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Console</span>
+                  {compilerLogs && (
+                    <span className={`text-xs font-medium ${
+                      renderStatus === 'failed' ? 'text-red-400' : 'text-gray-500'
+                    }`}>
+                      {renderStatus === 'failed' ? 'Errors detected' : 'OK'}
+                    </span>
+                  )}
+                </div>
+                <div className="flex-1 overflow-y-auto p-2 font-mono text-xs leading-relaxed">
+                  {compilerLogs ? (
+                    compilerLogs.split('\n').map((line, i) => (
+                      <div
+                        key={i}
+                        className={`whitespace-pre-wrap ${
+                          line.startsWith('[ERROR]') ? 'text-red-400' :
+                          line.startsWith('[WARN]') ? 'text-yellow-400' :
+                          line.startsWith('[TOOL]') ? 'text-blue-400' :
+                          line.startsWith('[INFO]') ? 'text-gray-400' :
+                          'text-gray-500'
+                        }`}
+                      >
+                        {line}
+                      </div>
+                    ))
+                  ) : (
+                    <span className="text-gray-600 italic">No output yet.</span>
+                  )}
+                </div>
+              </Panel>
+            </PanelGroup>
+          </Panel>
+        </PanelGroup>
+      </Panel>
+      </PanelGroup>
     </div>
   );
 }

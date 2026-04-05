@@ -78,7 +78,8 @@ export async function sendMessageToAgent(
   error: string | null,
   stlContent: string | null,
   onCodeEdit: (action: string, target?: string, replacement?: string) => void,
-  onScreenshotRequest: () => Promise<string>
+  onScreenshotRequest: () => Promise<string>,
+  onToolCall?: (toolName: string, args?: Record<string, unknown>) => void
 ): Promise<string> {
   const systemInstruction = `You are an expert OpenSCAD developer. 
 You help the user create and modify 3D models using OpenSCAD.
@@ -144,6 +145,7 @@ Be concise in your responses.`;
     const functionResponses: any[] = [];
     
     for (const call of response.functionCalls) {
+      onToolCall?.(call.name, call.args as Record<string, unknown>);
       if (call.name === "editCode") {
         const args = call.args as any;
         onCodeEdit(args.action, args.targetString, args.replacementString);
