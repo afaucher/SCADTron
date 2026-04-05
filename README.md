@@ -3,7 +3,7 @@
 <p>An AI-powered, browser-native 3D modeling tool powered by OpenSCAD and Manifold geometry.</p>
 </div>
 
-![SCADTron Screenshot](public/screenshot.png)
+![SCADTron Screenshot](public/screenshot.webp)
 
 ## Overview
 SCADTron is a unified environment for writing, generating, and rendering 3D parametric models. It uses a high-performance WebAssembly build of OpenSCAD combined with the Manifold geometry engine, allowing it to render complex booleans lightning-fast entirely in your browser without any server-side compilation.
