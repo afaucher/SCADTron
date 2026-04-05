@@ -1,0 +1,5 @@
+{
+  "name": "OpenSCAD AI Assistant",
+  "description": "An AI-assisted generator for OpenSCAD models, featuring a live code editor, 3D preview, and STL export.",
+  "requestFramePermissions": []
+}
