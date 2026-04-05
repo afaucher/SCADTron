@@ -69,11 +69,12 @@ function ScreenshotHelper({ onScreenshot, trigger }: { onScreenshot?: (dataUrl: 
 function SingleView({ stlContent, onScreenshot, screenshotTrigger, cameraType, position, up }: any) {
   return (
     <Canvas shadows={{ type: THREE.PCFShadowMap }} gl={{ preserveDrawingBuffer: true }}>
-      {cameraType === 'ortho' ? (
-        <OrthographicCamera makeDefault position={position} up={up} zoom={10} />
-      ) : (
-        <PerspectiveCamera makeDefault position={position} up={up} fov={50} />
-      )}
+      <PerspectiveCamera 
+        makeDefault 
+        position={position} 
+        up={up} 
+        fov={cameraType === 'ortho' ? 2 : 50} 
+      />
       <color attach="background" args={['#111827']} />
       
       <Stage environment="city" intensity={0.6} adjustCamera={1.2} shadows={false}>
