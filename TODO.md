@@ -6,7 +6,7 @@
 - [ ] **Geometry repair hints** — When a 2-manifold error occurs, suggest specific fixes (epsilon overlaps, `hull()`, etc.)
 
 ## Editor
-- [ ] **OpenSCAD syntax highlighting** — Replace `cpp` language mode with a proper OpenSCAD grammar for Monaco
+- [x] **OpenSCAD syntax highlighting** — Replace `cpp` language mode with a proper OpenSCAD grammar for Monaco
 - [ ] **Auto-complete for OpenSCAD builtins** — `cube`, `sphere`, `translate`, `difference`, etc.
 - [ ] **Inline error markers** — Map OpenSCAD line-number errors back to red squiggles in the editor
 - [ ] **Multiple file tabs** — Support `use <...>` and `include <...>` with a tabbed editor

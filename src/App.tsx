@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Editor from '@monaco-editor/react';
+import { registerOpenScadLanguage } from './lib/openscadLanguage';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import { StlViewer } from './components/StlViewer';
 import { ApiKeySetup } from './components/ApiKeySetup';
@@ -444,10 +445,11 @@ function AppInner() {
             <div className="flex-1">
               <Editor
                 height="100%"
-                defaultLanguage="cpp"
+                defaultLanguage="openscad"
                 theme="vs-dark"
                 value={code}
                 onChange={(value) => setCode(value || '')}
+                beforeMount={(monaco) => registerOpenScadLanguage(monaco)}
                 options={{
                   minimap: { enabled: false },
                   fontSize: 14,
