@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Editor from '@monaco-editor/react';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import { StlViewer } from './components/StlViewer';
+import { ApiKeySetup } from './components/ApiKeySetup';
 import { renderOpenScad, getRecentLogs, clearLogs } from './services/openscad';
 import { sendMessageToAgent, ChatMessage } from './services/ai';
 import { parseScadParameters, updateScadParameter, ScadParameter } from './utils/scadParser';
-import { Download, Save, FolderOpen, Send, Loader2, LayoutGrid, Square, CheckCircle2, XCircle, Clock, Circle, FilePlus } from 'lucide-react';
+import { ApiKeyProvider, useApiKey } from './contexts/apiKeyContext';
+import { Download, Save, FolderOpen, Send, Loader2, LayoutGrid, Square, CheckCircle2, XCircle, Clock, Circle, FilePlus, KeyRound } from 'lucide-react';
 
 const DEFAULT_CODE = `// OpenSCAD Parameterized Model
 width = 20; // [10:1:50] Width of the base
@@ -31,7 +33,8 @@ difference() {
 }
 `;
 
-export default function App() {
+function AppInner() {
+  const { apiKey, hasKey, isEnvKey, clearApiKey } = useApiKey();
   const [code, setCode] = useState(DEFAULT_CODE);
   const [stlContent, setStlContent] = useState<string | null>(null);
   const [amfContent, setAmfContent] = useState<string | null>(null);
@@ -133,6 +136,7 @@ export default function App() {
 
     try {
       const responseText = await sendMessageToAgent(
+        apiKey!,
         newMessages,
         code,
         compilerLogs,
@@ -243,51 +247,66 @@ export default function App() {
   return (
     <div className="flex h-screen w-full bg-gray-950 text-gray-100 font-sans overflow-hidden">
       <PanelGroup orientation="horizontal">
-      {/* Sidebar Chat */}
+      {/* Sidebar: BYOK Setup or Chat */}
       <Panel defaultSize={25} minSize={15} className="flex flex-col bg-gray-900 border-r border-gray-800">
-        <div className="p-4 border-b border-gray-800 font-bold text-lg flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-          OpenSCAD AI Assistant
-        </div>
-        
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.length === 0 && (
-            <div className="text-gray-500 text-sm italic text-center mt-10">
-              Ask me to create or modify a 3D model!
+        {!hasKey ? (
+          <ApiKeySetup />
+        ) : (
+          <>
+            <div className="p-4 border-b border-gray-800 font-bold text-lg flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+              <span className="flex-1">OpenSCAD AI Assistant</span>
+              {!isEnvKey && (
+                <button
+                  onClick={clearApiKey}
+                  title="Change API key"
+                  className="p-1.5 rounded hover:bg-gray-700 text-gray-500 hover:text-gray-300 transition-colors"
+                >
+                  <KeyRound className="w-4 h-4" />
+                </button>
+              )}
             </div>
-          )}
-          {messages.map((msg, idx) => (
-            <div key={idx} className={`p-3 rounded-lg ${msg.role === 'user' ? 'bg-blue-900/40 ml-4' : 'bg-gray-800 mr-4'}`}>
-              <div className="text-xs text-gray-400 mb-1">{msg.role === 'user' ? 'You' : 'AI'}</div>
-              <div className="text-sm whitespace-pre-wrap">{msg.text}</div>
+            
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {messages.length === 0 && (
+                <div className="text-gray-500 text-sm italic text-center mt-10">
+                  Ask me to create or modify a 3D model!
+                </div>
+              )}
+              {messages.map((msg, idx) => (
+                <div key={idx} className={`p-3 rounded-lg ${msg.role === 'user' ? 'bg-blue-900/40 ml-4' : 'bg-gray-800 mr-4'}`}>
+                  <div className="text-xs text-gray-400 mb-1">{msg.role === 'user' ? 'You' : 'AI'}</div>
+                  <div className="text-sm whitespace-pre-wrap">{msg.text}</div>
+                </div>
+              ))}
+              {isAgentTyping && (
+                <div className="p-3 rounded-lg bg-gray-800 mr-4 flex items-center gap-2 text-gray-400 text-sm">
+                  <Loader2 className="w-4 h-4 animate-spin" /> AI is thinking...
+                </div>
+              )}
             </div>
-          ))}
-          {isAgentTyping && (
-            <div className="p-3 rounded-lg bg-gray-800 mr-4 flex items-center gap-2 text-gray-400 text-sm">
-              <Loader2 className="w-4 h-4 animate-spin" /> AI is thinking...
-            </div>
-          )}
-        </div>
 
-        <div className="p-4 border-t border-gray-800">
-          <div className="flex gap-2">
-            <input 
-              type="text" 
-              value={inputMessage}
-              onChange={e => setInputMessage(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
-              placeholder="Ask for changes..."
-              className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-            />
-            <button 
-              onClick={handleSendMessage}
-              disabled={isAgentTyping || !inputMessage.trim()}
-              className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 p-2 rounded transition-colors"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+            <div className="p-4 border-t border-gray-800">
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={inputMessage}
+                  onChange={e => setInputMessage(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
+                  placeholder="Ask for changes..."
+                  className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                />
+                <button 
+                  onClick={handleSendMessage}
+                  disabled={isAgentTyping || !inputMessage.trim()}
+                  className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 p-2 rounded transition-colors"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </Panel>
 
       <PanelResizeHandle className="w-1.5 bg-gray-900 hover:bg-blue-600 transition-colors flex items-center justify-center group shrink-0 z-10 cursor-col-resize">
@@ -499,5 +518,13 @@ export default function App() {
       </Panel>
       </PanelGroup>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ApiKeyProvider>
+      <AppInner />
+    </ApiKeyProvider>
   );
 }

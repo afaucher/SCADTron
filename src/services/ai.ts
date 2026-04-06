@@ -2,8 +2,6 @@ import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import { getModelDimensions, castRay } from "../utils/stlMeasurements";
 import { cheatSheet } from "../lib/openscad-cheatsheet";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
 export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
@@ -73,6 +71,7 @@ export const castRayDeclaration: FunctionDeclaration = {
 };
 
 export async function sendMessageToAgent(
+  apiKey: string,
   messages: ChatMessage[],
   currentCode: string,
   logs: string,
@@ -82,6 +81,7 @@ export async function sendMessageToAgent(
   onScreenshotRequest: () => Promise<string>,
   onToolCall?: (toolName: string, args?: Record<string, unknown>) => void
 ): Promise<string> {
+  const ai = new GoogleGenAI({ apiKey });
   const systemInstruction = `You are an expert OpenSCAD developer. 
 You help the user create and modify 3D models using OpenSCAD.
 The user's current code is:
