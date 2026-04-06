@@ -24,13 +24,13 @@
 - [ ] **Dark/light theme toggle** — Switch viewer background between dark and light
 
 ## AI Assistant
-- [ ] **BYOK (Bring Your Own Key)** — Let users enter their own Gemini API key in the UI so the app works without a `.env.local` file (store in localStorage, never send to any server)
+- [x] **BYOK (Bring Your Own Key)** — Let users enter their own Gemini API key in the UI so the app works without a `.env.local` file (store in localStorage, never send to any server)
 - [ ] **Conversation persistence** — Save/load chat history alongside the project
 - [ ] **Library awareness** — Teach the AI about popular OpenSCAD libraries (BOSL2, MCAD, etc.)
 - [ ] **Iterative refinement** — AI can see the rendered model screenshot and suggest improvements automatically
 - [ ] **Voice input** — Speak design changes instead of typing
 
 ## Infrastructure
-- [ ] **Deploy to GitHub Pages / Firebase Hosting** — One-click public deployment
+- [x] **Deploy to GitHub Pages / Firebase Hosting** — One-click public deployment
 - [ ] **PWA support** — Installable as a desktop app with offline capability
 - [ ] **Performance benchmarks** — Track render times across different model complexities
